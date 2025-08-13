@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kanban + Notes + Pomodoro + IST Clock</title>
+<style>
+  :root{
+    --bg:#0f1115;
+    --panel:#161a22;
+    --panel-2:#1b2230;
+    --muted:#8c98a9;
+    --muted-2:#b9c1cf;
+    --accent:#4f8cff;
+    --accent-2:#67d4a1;
+    --danger:#ff6b6b;
+    --card:#202838;
+    --shadow:0 6px 18px rgba(0,0,0,.25);
+    --radius:16px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    background:linear-gradient(180deg,#0e131b, #0b1017 40%, #0a0f16);
+    color:#e8edf7;
+    min-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+    padding:18px;
+  }
+
+  /* Header */
+  .header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 16px; background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow);
+  }
+  .header h1{margin:0; font-size:20px; font-weight:700; letter-spacing:.3px}
+  .header .brand{opacity:.85; font-weight:600; font-size:12px; color:var(--muted)}
+
+  /* Kanban */
+  .kanban{
+    background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow);
+    padding:16px; display:flex; gap:16px; overflow:auto;
+  }
+  .column{
+    background:var(--panel-2);
+    min-width:260px; width:100%;
+    border-radius:14px; padding:12px;
+    display:flex; flex-direction:column; gap:10px;
+    border:1px solid rgba(255,255,255,.06);
+  }
+  .column-header{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .column-title{font-weight:700; letter-spacing:.3px}
+  .add-wrap{display:flex; gap:8px}
+  .add-wrap input{
+    flex:1; border:1px solid rgba(255,255,255,.08); background:#0f1520; color:#e8edf7;
+    padding:8px 10px; border-radius:10px; outline:none;
+  }
+  .btn{
+    border:none; border-radius:10px; padding:8px 10px; cursor:pointer; font-weight:600;
+  }
+  .btn.primary{background:var(--accent); color:white}
+  .btn.ghost{background:transparent; color:var(--muted-2); border:1px solid rgba(255,255,255,.08)}
+  .btn.danger{background:var(--danger); color:white}
+  .cards{display:flex; flex-direction:column; gap:10px; min-height:40px}
+  .card{
+    background:var(--card); border:1px solid rgba(255,255,255,.06);
+    border-radius:12px; padding:10px; box-shadow:var(--shadow);
+    display:flex; gap:8px; align-items:flex-start
+  }
+  .card[draggable="true"]{cursor:grab}
+  .card textarea{
+    background:transparent; border:none; resize:none; color:#e8edf7; width:100%; outline:none; font:inherit
+  }
+  .card .small{
+    font-size:12px; color:var(--muted); margin-top:4px
+  }
+  .drop-hint{
+    border:2px dashed rgba(103,212,161,.5); border-radius:12px; padding:14px; text-align:center; color:var(--accent-2);
+    display:none;
+  }
+  .column.drag-over .drop-hint{display:block}
+
+  /* Bottom row layout */
+  .bottom{
+    display:grid; gap:16px;
+    grid-template-columns: 1.2fr 1fr 1fr;
+  }
+  @media (max-width: 1000px){
+    .bottom{grid-template-columns:1fr}
+  }
+
+  /* Notes */
+  .notes, .timer, .clock{
+    background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow);
+    padding:16px; border:1px solid rgba(255,255,255,.06);
+  }
+  .section-title{margin:0 0 10px; font-weight:700; letter-spacing:.3px; color:#f0f4ff}
+  .notes textarea{
+    width:100%; height:260px; background:#0f1520; color:#e8edf7; border:1px solid rgba(255,255,255,.08);
+    border-radius:12px; padding:12px; outline:none; resize:vertical;
+  }
+
+  /* Timer */
+  .timer-display{
+    display:flex; align-items:end; justify-content:center; gap:10px; margin:8px 0 16px;
+    font-weight:800;
+  }
+  .time{
+    font-size:48px; line-height:1; letter-spacing:1px;
+    background:linear-gradient(180deg,#eef1ff,#a9b8ff 55%, #7ea6ff); -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    text-shadow:0 6px 24px rgba(79,140,255,.25);
+  }
+  .phase{font-size:14px; color:var(--muted-2); padding:4px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.08)}
+  .timer-controls{display:flex; justify-content:center; gap:8px}
+  .timer .row{display:flex; gap:8px; align-items:center; justify-content:center; margin-bottom:10px}
+  .timer input{
+    width:70px; padding:8px; background:#0f1520; color:#e8edf7; border-radius:10px; border:1px solid rgba(255,255,255,.08);
+    outline:none; text-align:center; font-weight:700;
+  }
+  .muted{color:var(--muted); font-size:12px; text-align:center; margin-top:8px}
+
+  /* Clock */
+  .clock canvas{
+    width:100%; max-width:280px; aspect-ratio:1/1; display:block; margin:0 auto;
+    background:#0f1520; border:1px solid rgba(255,255,255,.08); border-radius:999px;
+  }
+  .clock .sub{color:var(--muted); text-align:center; font-size:12px; margin-top:8px}
+  .footer{
+    text-align:center; color:var(--muted); margin-top:4px; font-size:12px
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>Kanban Board</h1>
+    <div class="brand">Created by Sadik Pathan</div>
+  </div>
+
+  <!-- KANBAN -->
+  <section class="kanban" id="kanban">
+    <!-- Columns will be generated by JS to keep code DRY -->
+  </section>
+
+  <!-- BOTTOM ROW -->
+  <section class="bottom">
+    <!-- NOTES -->
+    <div class="notes">
+      <h2 class="section-title">Notes</h2>
+      <textarea id="notesArea" placeholder="Write your notes here..."></textarea>
+      <div class="footer">Notes are auto-saved.</div>
+    </div>
+
+    <!-- TIMER -->
+    <div class="timer">
+      <h2 class="section-title">Pomodoro Timer</h2>
+      <div class="row">
+        <label>Work (min)</label><input id="workMinutes" type="number" min="1" value="25">
+        <label>Break (min)</label><input id="breakMinutes" type="number" min="1" value="5">
+      </div>
+      <div class="timer-display">
+        <div class="time" id="countdown">25:00</div>
+        <div class="phase" id="phase">Work</div>
+      </div>
+      <div class="timer-controls">
+        <button class="btn primary" id="startBtn">Start</button>
+        <button class="btn ghost" id="pauseBtn">Pause</button>
+        <button class="btn danger" id="resetBtn">Reset</button>
+      </div>
+      <div class="muted" id="timerHint">Starts only when you press <strong>Start</strong>.</div>
+    </div>
+
+    <!-- CLOCK -->
+    <div class="clock">
+      <h2 class="section-title">IST Analog Clock</h2>
+      <canvas id="clockCanvas" width="300" height="300"></canvas>
+      <div class="sub" id="digitalIST"></div>
+    </div>
+  </section>
+
+<script>
+/* =========================
+   UTIL: Local Storage
+========================= */
+const storage = {
+  get(key, fallback){
+    try{ const v = JSON.parse(localStorage.getItem(key)); return (v===null||v===undefined)?fallback:v; }
+    catch{ return fallback; }
+  },
+  set(key, val){
+    localStorage.setItem(key, JSON.stringify(val));
+  }
+};
+
+/* =========================
+   KANBAN
+========================= */
+const KANBAN_KEY = 'kanbanData_v1';
+const defaultKanban = {
+  columns:[
+    { id:'todo',        title:'To Do',        items:[] },
+    { id:'inprogress',  title:'In Progress',  items:[] },
+    { id:'review',      title:'Review',       items:[] },
+    { id:'done',        title:'Done',         items:[] }
+  ]
+};
+let kanbanState = storage.get(KANBAN_KEY, defaultKanban);
+
+const kanbanEl = document.getElementById('kanban');
+
+function renderKanban(){
+  kanbanEl.innerHTML = '';
+  kanbanState.columns.forEach(col=>{
+    const colEl = document.createElement('div');
+    colEl.className = 'column';
+    colEl.dataset.colId = col.id;
+
+    colEl.innerHTML = `
+      <div class="column-header">
+        <div class="column-title">${col.title}</div>
+        <div class="add-wrap">
+          <input type="text" placeholder="Add task..." />
+          <button class="btn primary add-btn">Add</button>
+        </div>
+      </div>
+      <div class="drop-hint">Drop here</div>
+      <div class="cards"></div>
+    `;
+
+    const cardsEl = colEl.querySelector('.cards');
+    col.items.forEach(card=>{
+      cardsEl.appendChild(createCardEl(card.id, card.text, card.createdAt));
+    });
+
+    // Add task
+    const input = colEl.querySelector('input');
+    colEl.querySelector('.add-btn').addEventListener('click', ()=>{
+      const text = input.value.trim();
+      if(!text) return;
+      const id = 't_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+      const createdAt = new Date().toISOString();
+      const cardEl = createCardEl(id, text, createdAt);
+      cardsEl.prepend(cardEl);
+      input.value = '';
+      // update state
+      const column = kanbanState.columns.find(c=>c.id===col.id);
+      column.items.unshift({id, text, createdAt});
+      storage.set(KANBAN_KEY, kanbanState);
+    });
+
+    // Drag events for column
+    colEl.addEventListener('dragover', (e)=>{ e.preventDefault(); colEl.classList.add('drag-over'); });
+    colEl.addEventListener('dragleave', ()=> colEl.classList.remove('drag-over'));
+    colEl.addEventListener('drop', (e)=>{
+      e.preventDefault();
+      colEl.classList.remove('drag-over');
+      const cardId = e.dataTransfer.getData('text/plain');
+      const draggedEl = document.querySelector(`[data-card-id="${cardId}"]`);
+      if (draggedEl) {
+        colEl.querySelector('.cards').prepend(draggedEl);
+        moveCardToColumn(cardId, col.id);
+      }
+    });
+
+    kanbanEl.appendChild(colEl);
+  });
+}
+
+function createCardEl(id, text, createdAt){
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.draggable = true;
+  el.dataset.cardId = id;
+
+  el.innerHTML = `
+    <textarea rows="2">${text}</textarea>
+    <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+      <button class="btn ghost" title="Delete">×</button>
+      <div class="small">${new Date(createdAt).toLocaleString()}</div>
+    </div>
+  `;
+
+  // Drag
+  el.addEventListener('dragstart', (e)=>{
+    e.dataTransfer.setData('text/plain', id);
+  });
+
+  // Delete
+  el.querySelector('button').addEventListener('click', ()=>{
+    el.remove();
+    deleteCard(id);
+  });
+
+  // Edit
+  const ta = el.querySelector('textarea');
+  ta.addEventListener('input', ()=>{
+    updateCardText(id, ta.value);
+  });
+
+  return el;
+}
+
+function locateCard(cardId){
+  for(const col of kanbanState.columns){
+    const idx = col.items.findIndex(it=>it.id===cardId);
+    if(idx>-1) return { col, idx };
+  }
+  return null;
+}
+
+function deleteCard(cardId){
+  for(const col of kanbanState.columns){
+    const idx = col.items.findIndex(it=>it.id===cardId);
+    if(idx>-1){ col.items.splice(idx,1); break; }
+  }
+  storage.set(KANBAN_KEY, kanbanState);
+}
+
+function updateCardText(cardId, text){
+  const spot = locateCard(cardId);
+  if(spot){ spot.col.items[spot.idx].text = text; storage.set(KANBAN_KEY, kanbanState); }
+}
+
+function moveCardToColumn(cardId, newColId){
+  const spot = locateCard(cardId);
+  if(!spot) return;
+  const [item] = spot.col.items.splice(spot.idx,1);
+  const dest = kanbanState.columns.find(c=>c.id===newColId);
+  dest.items.unshift(item);
+  storage.set(KANBAN_KEY, kanbanState);
+}
+
+renderKanban();
+
+/* =========================
+   NOTES (localStorage)
+========================= */
+const NOTES_KEY = 'notesText_v1';
+const notesArea = document.getElementById('notesArea');
+notesArea.value = storage.get(NOTES_KEY, '');
+notesArea.addEventListener('input', ()=>{
+  storage.set(NOTES_KEY, notesArea.value);
+});
+
+/* =========================
+   POMODORO TIMER
+   - Starts only when Start is pressed
+   - Persist state
+========================= */
+const TIMER_KEY = 'pomodoroState_v1';
+const countdownEl = document.getElementById('countdown');
+const phaseEl = document.getElementById('phase');
+const startBtn = document.getElementById('startBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const resetBtn = document.getElementById('resetBtn');
+const workInput = document.getElementById('workMinutes');
+const breakInput = document.getElementById('breakMinutes');
+const timerHint = document.getElementById('timerHint');
+
+const defaultTimer = {
+  phase:'work', // 'work' | 'break'
+  workMinutes:25,
+  breakMinutes:5,
+  remainingSec:25*60,
+  running:false,
+  lastTick:null // ms epoch when last started/resumed
+};
+
+let timerState = Object.assign({}, defaultTimer, storage.get(TIMER_KEY, {}));
+
+// Sync inputs from state
+workInput.value = timerState.workMinutes;
+breakInput.value = timerState.breakMinutes;
+updateCountdownLabel();
+phaseEl.textContent = timerState.phase==='work' ? 'Work' : 'Break';
+
+let tickInterval = null;
+
+function saveTimer(){
+  storage.set(TIMER_KEY, timerState);
+}
+
+function formatMMSS(sec){
+  const m = Math.floor(sec/60);
+  const s = sec % 60;
+  return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+
+function updateCountdownLabel(){
+  countdownEl.textContent = formatMMSS(timerState.remainingSec);
+}
+
+function computeCatchup(){
+  if(timerState.running && timerState.lastTick){
+    const now = Date.now();
+    const elapsed = Math.floor((now - timerState.lastTick)/1000);
+    if(elapsed>0){
+      timerState.remainingSec = Math.max(0, timerState.remainingSec - elapsed);
+      timerState.lastTick = now;
+      saveTimer();
+    }
+  }
+}
+
+function startTimer(){
+  // if already running, ignore
+  if(timerState.running) return;
+  // set durations from inputs (if user changed)
+  timerState.workMinutes = Math.max(1, parseInt(workInput.value||'25'));
+  timerState.breakMinutes = Math.max(1, parseInt(breakInput.value||'5'));
+  if(timerState.phase==='work' && timerState.remainingSec > timerState.workMinutes*60) {
+    // if inputs changed smaller than current remaining, keep remaining
+  }
+  if(timerState.phase==='break' && timerState.remainingSec > timerState.breakMinutes*60) {
+    // same as above
+  }
+  // if fresh (exact multiple), reset remaining to phase duration
+  if(timerState.remainingSec<=0 || timerState.remainingSec> 60*1800){ // guard
+    timerState.remainingSec = (timerState.phase==='work'? timerState.workMinutes: timerState.breakMinutes)*60;
+  }
+  timerState.running = true;
+  timerState.lastTick = Date.now();
+  saveTimer();
+  runTickLoop();
+  timerHint.textContent = 'Running…';
+}
+
+function pauseTimer(){
+  if(!timerState.running) return;
+  computeCatchup();
+  timerState.running = false;
+  timerState.lastTick = null;
+  saveTimer();
+  clearInterval(tickInterval); tickInterval=null;
+  timerHint.textContent = 'Paused.';
+  updateCountdownLabel();
+}
+
+function resetTimer(){
+  timerState.workMinutes = Math.max(1, parseInt(workInput.value||'25'));
+  timerState.breakMinutes = Math.max(1, parseInt(breakInput.value||'5'));
+  timerState.phase = 'work';
+  timerState.remainingSec = timerState.workMinutes*60;
+  timerState.running = false;
+  timerState.lastTick = null;
+  saveTimer();
+  clearInterval(tickInterval); tickInterval=null;
+  phaseEl.textContent = 'Work';
+  timerHint.textContent = 'Reset. Press Start to begin.';
+  updateCountdownLabel();
+}
+
+function switchPhase(){
+  timerState.phase = (timerState.phase==='work')?'break':'work';
+  timerState.remainingSec = (timerState.phase==='work' ? timerState.workMinutes : timerState.breakMinutes)*60;
+  phaseEl.textContent = timerState.phase==='work' ? 'Work' : 'Break';
+  // keep running if currently running
+  timerState.lastTick = Date.now();
+  saveTimer();
+}
+
+function runTickLoop(){
+  clearInterval(tickInterval);
+  tickInterval = setInterval(()=>{
+    computeCatchup();
+    if(timerState.remainingSec<=0){
+      // phase complete -> swap
+      switchPhase();
+    }
+    updateCountdownLabel();
+  }, 500);
+}
+
+// Wire buttons
+startBtn.addEventListener('click', startTimer);
+pauseBtn.addEventListener('click', pauseTimer);
+resetBtn.addEventListener('click', resetTimer);
+
+// On load, if it was running before refresh, resume quietly.
+(function initTimerOnLoad(){
+  // apply any elapsed during page closed
+  computeCatchup();
+  updateCountdownLabel();
+  phaseEl.textContent = timerState.phase==='work' ? 'Work' : 'Break';
+  if(timerState.running){
+    runTickLoop();
+    timerHint.textContent = 'Running…';
+  } else {
+    timerHint.textContent = 'Starts only when you press Start.';
+  }
+})();
+
+/* =========================
+   SIMPLE CLEAN IST ANALOG CLOCK
+========================= */
+const canvas = document.getElementById('clockCanvas');
+const ctx = canvas.getContext('2d');
+let r = canvas.width/2;
+ctx.translate(r, r);
+
+function drawClock(){
+  // clear
+  ctx.clearRect(-r,-r, canvas.width, canvas.height);
+
+  // face
+  ctx.beginPath(); ctx.arc(0,0, r-2, 0, Math.PI*2); ctx.fillStyle = '#0b1220'; ctx.fill();
+  // ring
+  ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.stroke();
+
+  // hour ticks
+  ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.55)';
+  for(let i=0;i<12;i++){
+    const ang = i*Math.PI/6;
+    ctx.beginPath();
+    ctx.rotate(ang);
+    ctx.moveTo(0, -(r-14)); ctx.lineTo(0, -(r-28));
+    ctx.stroke();
+    ctx.rotate(-ang);
+  }
+  // minute ticks (every 5 is already drawn; draw light ticks)
+  ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,.25)';
+  for(let i=0;i<60;i++){
+    if(i%5===0) continue;
+    const ang = i*Math.PI/30;
+    ctx.beginPath();
+    ctx.rotate(ang);
+    ctx.moveTo(0, -(r-18)); ctx.lineTo(0, -(r-24));
+    ctx.stroke();
+    ctx.rotate(-ang);
+  }
+
+  // time in IST using Intl
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('en-US', {hour:'numeric', minute:'numeric', second:'numeric', hour12:false, timeZone:'Asia/Kolkata'}).formatToParts(now);
+  let h = parseInt(parts.find(p=>p.type==='hour').value,10);
+  let m = parseInt(parts.find(p=>p.type==='minute').value,10);
+  let s = parseInt(parts.find(p=>p.type==='second').value,10);
+
+  // hands
+  // hour
+  drawHand(((h%12)*Math.PI/6) + (m*Math.PI/(6*60)) + (s*Math.PI/(360*60)), r*0.5, 5, '#e8edf7');
+  // minute
+  drawHand((m*Math.PI/30) + (s*Math.PI/(30*60)), r*0.72, 3, '#a9b8ff');
+  // second
+  drawHand((s*Math.PI/30), r*0.82, 1.5, '#67d4a1');
+
+  // center cap
+  ctx.beginPath(); ctx.arc(0,0,3.5,0,Math.PI*2); ctx.fillStyle='#e8edf7'; ctx.fill();
+
+  // digital readout beneath
+  const digitalIST = document.getElementById('digitalIST');
+  const ampm = new Intl.DateTimeFormat('en-US', {hour:'numeric', minute:'2-digit', second:'2-digit', hour12:true, timeZone:'Asia/Kolkata'}).format(now);
+  digitalIST.textContent = ampm + ' (IST)';
+}
+function drawHand(angle, length, width, color){
+  ctx.save();
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap='round';
+  ctx.moveTo(0, 8); // small tail
+  ctx.lineTo(0, -length);
+  ctx.stroke();
+  ctx.restore();
+}
+setInterval(drawClock, 1000);
+drawClock();
+
+// Resize canvas crisply on container width changes
+function resizeClock(){
+  const max = Math.min(280, document.querySelector('.clock').clientWidth - 32);
+  const size = Math.max(180, max);
+  canvas.width = size; canvas.height = size;
+  r = size/2; ctx.setTransform(1,0,0,1,0,0); ctx.translate(r,r);
+  drawClock();
+}
+window.addEventListener('resize', resizeClock);
+resizeClock();
+</script>
+</body>
+</html>
