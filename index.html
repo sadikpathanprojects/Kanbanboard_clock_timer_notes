@@ -157,12 +157,7 @@ h1{margin:18px 0 6px;text-align:center}
   </div>
 
   <!-- Pomodoro Timer -->
-  <div style="background:#2e2e2e; border-radius:10px; padding:12px; display:flex; flex-direction:column; align-items:center;">
-    <h3>Pomodoro Timer</h3>
-    <div id="timerDisplay" style="font-size:40px; font-weight:bold;">25:00</div>
-    <button id="startTimerBtn">Start</button>
-    <button id="resetTimerBtn">Reset</button>
-  </div>
+  
 
   <!-- IST Clock -->
   <div style="background:#2e2e2e; border-radius:10px; padding:12px; display:flex; flex-direction:column; align-items:center;">
@@ -286,37 +281,12 @@ notesArea.value = localStorage.getItem(NOTES_KEY) || "";
 notesArea.addEventListener("input", ()=> localStorage.setItem(NOTES_KEY, notesArea.value));
 
 // ===== Pomodoro Timer =====
-let timerSec = 25*60;
-let timerRunning = false;
-let timerInterval = null;
-const timerDisplay = document.getElementById("timerDisplay");
-const startBtn = document.getElementById("startTimerBtn");
-const resetBtn = document.getElementById("resetTimerBtn");
 
 function formatTime(sec){
   const m = Math.floor(sec/60), s=sec%60;
   return String(m).padStart(2,'0')+":"+String(s).padStart(2,'0');
 }
-function updateTimerDisplay(){ timerDisplay.textContent = formatTime(timerSec); }
 
-startBtn.addEventListener("click", ()=>{
-  if(timerRunning) return;
-  timerRunning = true;
-  timerInterval = setInterval(()=>{
-    timerSec--;
-    if(timerSec<=0){ clearInterval(timerInterval); timerRunning=false; showToast("Pomodoro finished"); timerSec=25*60; }
-    updateTimerDisplay();
-  },1000);
-});
-
-resetBtn.addEventListener("click", ()=>{
-  clearInterval(timerInterval);
-  timerRunning=false;
-  timerSec=25*60;
-  updateTimerDisplay();
-});
-
-updateTimerDisplay();
 
 // ===== IST Clock =====
 const canvas = document.getElementById("bottomClock");
