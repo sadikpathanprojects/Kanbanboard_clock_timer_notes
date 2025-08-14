@@ -209,6 +209,7 @@ function createTask(text){
   task.className = "task";
   task.id = "task" + (taskId++);
 
+  // drag handle
   const handle = document.createElement("span");
   handle.className = "drag-handle";
   handle.title = "Drag to move";
@@ -216,25 +217,28 @@ function createTask(text){
   handle.draggable = true;
   handle.addEventListener("dragstart", function(ev){
     ev.dataTransfer.setData("text/plain", task.id);
-    if (ev.dataTransfer.setDragImage && handle) {
-      const crt = handle.cloneNode(true);
-      crt.style.position = "absolute";
-      crt.style.top = "-9999px";
-      document.body.appendChild(crt);
-      ev.dataTransfer.setDragImage(crt, 8, 8);
-      setTimeout(()=> document.body.removeChild(crt),0);
-    }
   });
 
+  // editable text
   const span = document.createElement("span");
   span.className = "task-text";
   span.innerText = text;
+  span.contentEditable = true; // make it editable
+  span.addEventListener("blur", saveBoard); // save when you leave the text
+  span.addEventListener("keydown", (e)=>{
+    if(e.key === "Enter"){
+      e.preventDefault();
+      span.blur(); // triggers saveBoard
+    }
+  });
 
+  // assemble task
   task.appendChild(handle);
   task.appendChild(span);
 
   return task;
 }
+  
 
 function addTask(){
   const input = document.getElementById("taskInput");
